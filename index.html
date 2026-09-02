@@ -112,7 +112,6 @@
             margin-bottom: 15px;
         }
 
-        /* ሊሄዱባቸው የሚችሉ ቦታዎችን የሚያደምቅ ስታይል */
         .highlight {
             background-color: rgba(255, 222, 0, 0.5) !important;
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
@@ -158,6 +157,8 @@
         let timerInterval = null;
         let whiteTime = 300, blackTime = 300;
         let currentMode = 'offline';
+        let playerColor = 'w';
+        let currentGameId = null;
 
         function removeHighlights() {
             $('#board .square-55d63').removeClass('highlight');
@@ -169,32 +170,23 @@
         }
 
         function onMouseoverSquare(square, piece) {
-            let moves = game.moves({
-                square: square,
-                verbose: true
-            });
-
+            let moves = game.moves({ square: square, verbose: true });
             if (moves.length === 0) return;
-
             highlightSquare(square);
-
-            for (let i = 0; i < moves.length; i++) {
-                highlightSquare(moves[i].to);
-            }
+            for (let i = 0; i < moves.length; i++) { highlightSquare(moves[i].to); }
         }
 
-        function onMouseoutSquare(square, piece) {
-            removeHighlights();
-        }
+        function onMouseoutSquare(square, piece) { removeHighlights(); }
 
         function onDragStart (source, piece) {
             if (game.game_over()) return false;
-            if (piece.search(/^b/) !== -1 && currentMode === 'bot' && game.turn() === 'b') return false;
+            if (currentMode === 'bot' && piece.search(/^b/) !== -1 && game.turn() === 'b') return false;
+            if (currentMode === 'online' && game.turn() !== playerColor) return false;
+            if (currentMode === 'online' && piece.search(new RegExp('^' + playerColor)) === -1) return false;
         }
 
         function checkGameState() {
             let statusText = '';
-
             if (game.in_checkmate()) {
                 let winner = game.turn() === 'w' ? 'ጥቁር' : 'ነጭ';
                 statusText = '🎉 ጨዋታው ተጠናቋል! ' + winner + ' በቼክሜት አሸንፏል!';
@@ -212,7 +204,6 @@
                 let turnColor = game.turn() === 'w' ? 'ነጭ' : 'ጥቁር';
                 statusText = turnColor + ' የመጫወት ተራ ነው';
             }
-
             let statusEl = document.getElementById('status');
             if (statusEl) { statusEl.innerText = statusText; }
         }
@@ -228,18 +219,14 @@
 
         function onDrop (source, target) {
             removeHighlights();
-
-            let move = game.move({
-                from: source,
-                to: target,
-                promotion: 'q'
-            });
-
+            let move = game.move({ from: source, to: target, promotion: 'q' });
             if (move === null) return 'snapback';
 
             checkGameState();
 
-            if (currentMode === 'bot' && !game.game_over()) {
+            if (currentMode === 'online') {
+                socket.emit('makeMove', { gameId: currentGameId, move: { from: source, to: target, promotion: 'q' } });
+            } else if (currentMode === 'bot' && !game.game_over()) {
                 window.setTimeout(makeRandomMove, 250);
             }
         }
@@ -266,21 +253,42 @@
         }
 
         function startBotGame() {
-            currentMode = 'bot'; game.reset(); board.start();
+            currentMode = 'bot'; game.reset(); board.orientation('white'); board.start();
             whiteTime = 300; blackTime = 300; startTimer();
             document.getElementById('status').innerText = "Ethio Chess: ከቦት ጋር እየተጫወቱ ነው";
         }
 
         function startOfflineGame() {
-            currentMode = 'offline'; game.reset(); board.start();
+            currentMode = 'offline'; game.reset(); board.orientation('white'); board.start();
             whiteTime = 300; blackTime = 300; startTimer();
             document.getElementById('status').innerText = "Ethio Chess: Offline Mode";
         }
 
         function joinTournament() {
-            socket.emit('joinTournament', 'Player');
-            document.getElementById('status').innerText = "ተቃራኒ ተጫዋች እየተፈለገ ነው...";
+            socket.emit('joinTournament');
         }
+
+        // Socket Event Listeners
+        socket.on('waiting', (msg) => {
+            document.getElementById('status').innerText = msg;
+        });
+
+        socket.on('gameStart', (data) => {
+            currentMode = 'online';
+            playerColor = data.color;
+            currentGameId = data.gameId;
+            game.reset();
+            board.orientation(playerColor === 'w' ? 'white' : 'black');
+            board.start();
+            whiteTime = 300; blackTime = 300; startTimer();
+            document.getElementById('status').innerText = "ጨዋታ ተጀምሯል! እርሶ የሚጫወቱት በ: " + (playerColor === 'w' ? 'ነጭ' : 'ጥቁር');
+        });
+
+        socket.on('opponentMove', (move) => {
+            game.move(move);
+            board.position(game.fen());
+            checkGameState();
+        });
 
         let config = {
             draggable: true,
