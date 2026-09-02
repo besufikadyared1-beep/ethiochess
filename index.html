@@ -111,6 +111,12 @@
             font-size: 0.95rem;
             margin-bottom: 15px;
         }
+
+        /* ሊሄዱባቸው የሚችሉ ቦታዎችን የሚያደምቅ ስታይል */
+        .highlight {
+            background-color: rgba(255, 222, 0, 0.5) !important;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -153,6 +159,34 @@
         let whiteTime = 300, blackTime = 300;
         let currentMode = 'offline';
 
+        function removeHighlights() {
+            $('#board .square-55d63').removeClass('highlight');
+        }
+
+        function highlightSquare(square) {
+            let $square = $('#board .square-' + square);
+            $square.addClass('highlight');
+        }
+
+        function onMouseoverSquare(square, piece) {
+            let moves = game.moves({
+                square: square,
+                verbose: true
+            });
+
+            if (moves.length === 0) return;
+
+            highlightSquare(square);
+
+            for (let i = 0; i < moves.length; i++) {
+                highlightSquare(moves[i].to);
+            }
+        }
+
+        function onMouseoutSquare(square, piece) {
+            removeHighlights();
+        }
+
         function onDragStart (source, piece) {
             if (game.game_over()) return false;
             if (piece.search(/^b/) !== -1 && currentMode === 'bot' && game.turn() === 'b') return false;
@@ -193,6 +227,8 @@
         }
 
         function onDrop (source, target) {
+            removeHighlights();
+
             let move = game.move({
                 from: source,
                 to: target,
@@ -252,7 +288,9 @@
             pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
             onDragStart: onDragStart,
             onDrop: onDrop,
-            onSnapEnd: onSnapEnd
+            onSnapEnd: onSnapEnd,
+            onMouseoverSquare: onMouseoverSquare,
+            onMouseoutSquare: onMouseoutSquare
         };
 
         board = Chessboard('board', config);
