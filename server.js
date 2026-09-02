@@ -8,33 +8,45 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-let tournamentPlayers = [];
+let waitingPlayer = null;
 
 io.on('connection', (socket) => {
-  console.log('አዲስ ተጫዋች ተቀላቀለ:', socket.id);
+    console.log('ተጫዋች ተገናኝቷል:', socket.id);
 
-  socket.on('move', (move) => {
-    socket.broadcast.emit('opponentMove', move);
-  });
+    socket.on('joinTournament', () => {
+        if (waitingPlayer && waitingPlayer.id !== socket.id) {
+            // ሁለት ተጫዋች ሲኖር ጨዋታ ማስጀመር
+            let gameId = 'game_' + socket.id;
+            
+            socket.join(gameId);
+            waitingPlayer.join(gameId);
 
-  socket.on('joinTournament', (playerName) => {
-    tournamentPlayers.push({ id: socket.id, name: playerName || 'Ethio Player' });
-    if (tournamentPlayers.length >= 2) {
-      let player1 = tournamentPlayers.shift();
-      let player2 = tournamentPlayers.shift();
-      
-      let roomName = `ethio_room_${player1.id}_${player2.id}`;
-      io.to(player1.id).emit('matchFound', { room: roomName, color: 'white' });
-      io.to(player2.id).emit('matchFound', { room: roomName, color: 'black' });
-    }
-  });
+            // ለሁለቱም ተጫዋቾች ቀለማቸውንና ጨዋታውን መላክ
+            waitingPlayer.emit('gameStart', { color: 'w', gameId: gameId });
+            socket.emit('gameStart', { color: 'b', gameId: gameId });
 
-  socket.on('disconnect', () => {
-    tournamentPlayers = tournamentPlayers.filter(p => p.id !== socket.id);
-  });
+            waitingPlayer = null;
+        } else {
+            // ተጫዋች መጠበቅ
+            waitingPlayer = socket;
+            socket.emit('waiting', 'ተቃራኒ ተጫዋች እየተፈለገ ነው...');
+        }
+    });
+
+    // የእንቅስቃሴ መረጃዎችን ለተቃራኒ ማስተላለፍ
+    socket.on('makeMove', (data) => {
+        socket.to(data.gameId).emit('opponentMove', data.move);
+    });
+
+    socket.on('disconnect', () => {
+        if (waitingPlayer && waitingPlayer.id === socket.id) {
+            waitingPlayer = null;
+        }
+        console.log('ተጫዋች ወጥቷል:', socket.id);
+    });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Ethio Chess Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
