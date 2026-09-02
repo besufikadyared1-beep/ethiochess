@@ -17,7 +17,7 @@
             padding: 20px;
         }
         #board {
-            width: 350px;
+            width: 340px;
             margin: 20px 0;
         }
         .controls {
@@ -42,6 +42,7 @@
         #status {
             font-size: 1.1em;
             margin-top: 10px;
+            text-align: center;
         }
     </style>
 </head>
@@ -136,6 +137,7 @@
         let config = {
             draggable: true,
             position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
             onDragStart: onDragStart,
             onDrop: onDrop,
             onSnapEnd: onSnapEnd
