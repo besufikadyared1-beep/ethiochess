@@ -1,43 +1,55 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
+const socketIo = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = socketIo(server);
 
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 
-let waitingSocket = null;
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+let waitingPlayer = null;
 
 io.on('connection', (socket) => {
-    console.log('ተጫዋች ተገናኝቷል:', socket.id);
+    console.log('A user connected:', socket.id);
 
-    socket.on('joinTournament', () => {
-        if (waitingSocket && waitingSocket.id !== socket.id) {
-            let roomName = 'room_' + socket.id;
+    // ተጫዋቾችን የማገናኘት logic
+    if (waitingPlayer === null) {
+        waitingPlayer = socket;
+        socket.emit('playerRole', 'w'); // የመጀመሪያው ተጫዋች White ይሆናል
+    } else {
+        let roomName = 'game_' + waitingPlayer.id + '_' + socket.id;
+        
+        socket.join(roomName);
+        waitingPlayer.join(roomName);
 
-            socket.join(roomName);
-            waitingSocket.join(roomName);
+        socket.emit('playerRole', 'b'); // ሁለተኛው ተጫዋች Black ይሆናል
 
-            // ለሁለቱም ተጫዋቾች መረጃ መላክ
-            waitingSocket.emit('gameStart', { color: 'w', room: roomName });
-            socket.emit('gameStart', { color: 'b', room: roomName });
+        waitingPlayer.room = roomName;
+        socket.room = roomName;
 
-            waitingSocket = null;
-        } else {
-            waitingSocket = socket;
-            socket.emit('waiting', 'ተቃራኒ ተጫዋች እየተፈለገ ነው...');
+        waitingPlayer = null;
+    }
+
+    // የቦርድ እንቅስቃሴን ለተጋጣሚው ማስተላለፍ
+    socket.on('move', (moveData) => {
+        if (socket.room) {
+            socket.to(socket.room).emit('move', moveData);
         }
     });
 
-    socket.on('makeMove', (data) => {
-        socket.to(data.room).emit('opponentMove', data.move);
-    });
-
     socket.on('disconnect', () => {
-        if (waitingSocket && waitingSocket.id === socket.id) {
-            waitingSocket = null;
+        console.log('User disconnected:', socket.id);
+        if (waitingPlayer === socket) {
+            waitingPlayer = null;
+        }
+        if (socket.room) {
+            io.to(socket.room).emit('playerDisconnected');
         }
     });
 });
