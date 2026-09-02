@@ -74,7 +74,6 @@
         <button onclick="setMode('online')">🌐 Online Mode</button>
     </div>
 
-    <!-- የሰዓት ቆጣሪ ማሳያዎች -->
     <div class="timer-box">
         <div id="blackTimer" class="timer">Black: 10:00</div>
         <div id="whiteTimer" class="timer active-timer">White: 10:00</div>
@@ -93,8 +92,8 @@
         let game = new Chess();
         let currentMode = 'pass';
         let socket = null;
+        let playerColor = 'w';
 
-        // የሰዓት ተለዋዋጮች (10 ደቂቃ = 600 ሰከንድ)
         let whiteTime = 600;
         let blackTime = 600;
         let timerInterval = null;
@@ -145,6 +144,7 @@
 
         function resetTimers() {
             clearInterval(timerInterval);
+            timerInterval = null;
             whiteTime = 600;
             blackTime = 600;
             updateTimerUI();
@@ -154,6 +154,7 @@
             if (game.game_over()) return false;
             if (currentMode === 'pass') return true;
             if (currentMode === 'bot' && game.turn() === 'b') return false;
+            if (currentMode === 'online' && game.turn() !== playerColor) return false;
         }
 
         function makeRandomMove () {
@@ -174,7 +175,6 @@
 
             if (move === null) return 'snapback';
 
-            // የመጀመሪያው நகர்வு ሲደረግ ሰዓቱን ማስጀመር
             if (!timerInterval) {
                 startTimer();
             }
@@ -182,7 +182,9 @@
             updateStatus();
             updateTimerUI();
 
-            if (currentMode === 'bot' && !game.game_over()) {
+            if (currentMode === 'online' && socket) {
+                socket.emit('move', { from: source, to: target, promotion: 'q' });
+            } else if (currentMode === 'bot' && !game.game_over()) {
                 window.setTimeout(makeRandomMove, 250);
             }
         }
@@ -210,16 +212,42 @@
             $('#status').html('<b>Mode:</b> ' + currentMode.toUpperCase() + '<br>' + status);
         }
 
+        function initSocket() {
+            if (!socket) {
+                socket = io();
+
+                socket.on('playerRole', (role) => {
+                    playerColor = role;
+                    board.orientation(role === 'w' ? 'white' : 'black');
+                    $('#status').html('<b>Online Mode:</b> You are playing as ' + (role === 'w' ? 'White' : 'Black'));
+                });
+
+                socket.on('move', (move) => {
+                    game.move(move);
+                    board.position(game.fen());
+                    if (!timerInterval) startTimer();
+                    updateStatus();
+                    updateTimerUI();
+                });
+
+                socket.on('playerDisconnected', () => {
+                    $('#status').html('<b>Opponent disconnected.</b>');
+                    clearInterval(timerInterval);
+                });
+            }
+        }
+
         function setMode(mode) {
             currentMode = mode;
             game.reset();
             board.position('start');
+            board.orientation('white');
             resetTimers();
             updateStatus();
 
             if (mode === 'online') {
-                if (!socket) socket = io();
-                $('#status').html('Connecting to Online Server...');
+                initSocket();
+                $('#status').html('Connecting to server...');
             }
         }
 
