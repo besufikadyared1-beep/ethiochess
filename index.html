@@ -112,11 +112,22 @@
       whiteTime = 300; blackTime = 300; startTimer();
       document.getElementById('status').innerText = "Ethio Chess: Offline Mode";
     }
+  
+let config = {
+    draggable: true,
+    position: 'start',
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: onSnapEnd
+};
+let config = {
+    draggable: true,
+    position: 'start',
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: onSnapEnd
+};
+board = Chessboard('board', config);
 
-    board = Chessboard('board', {
-      draggable: true, position: 'start',
-      onDragStart: onDragStart, onDrop: onDrop, onSnapEnd: onSnapEnd
-    });
-  </script>
-</body>
-</html>
