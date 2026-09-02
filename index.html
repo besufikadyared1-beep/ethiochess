@@ -263,5 +263,14 @@
         board = Chessboard('board', config);
         updateStatus();
     </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('Offline mode ready!');
+      });
+    });
+  }
+</script>
 </body>
 </html>
