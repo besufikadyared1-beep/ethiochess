@@ -8,41 +8,37 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-let waitingPlayer = null;
+let waitingSocket = null;
 
 io.on('connection', (socket) => {
     console.log('ተጫዋች ተገናኝቷል:', socket.id);
 
     socket.on('joinTournament', () => {
-        if (waitingPlayer && waitingPlayer.id !== socket.id) {
-            // ሁለት ተጫዋች ሲኖር ጨዋታ ማስጀመር
-            let gameId = 'game_' + socket.id;
-            
-            socket.join(gameId);
-            waitingPlayer.join(gameId);
+        if (waitingSocket && waitingSocket.id !== socket.id) {
+            let roomName = 'room_' + socket.id;
 
-            // ለሁለቱም ተጫዋቾች ቀለማቸውንና ጨዋታውን መላክ
-            waitingPlayer.emit('gameStart', { color: 'w', gameId: gameId });
-            socket.emit('gameStart', { color: 'b', gameId: gameId });
+            socket.join(roomName);
+            waitingSocket.join(roomName);
 
-            waitingPlayer = null;
+            // ለሁለቱም ተጫዋቾች መረጃ መላክ
+            waitingSocket.emit('gameStart', { color: 'w', room: roomName });
+            socket.emit('gameStart', { color: 'b', room: roomName });
+
+            waitingSocket = null;
         } else {
-            // ተጫዋች መጠበቅ
-            waitingPlayer = socket;
+            waitingSocket = socket;
             socket.emit('waiting', 'ተቃራኒ ተጫዋች እየተፈለገ ነው...');
         }
     });
 
-    // የእንቅስቃሴ መረጃዎችን ለተቃራኒ ማስተላለፍ
     socket.on('makeMove', (data) => {
-        socket.to(data.gameId).emit('opponentMove', data.move);
+        socket.to(data.room).emit('opponentMove', data.move);
     });
 
     socket.on('disconnect', () => {
-        if (waitingPlayer && waitingPlayer.id === socket.id) {
-            waitingPlayer = null;
+        if (waitingSocket && waitingSocket.id === socket.id) {
+            waitingSocket = null;
         }
-        console.log('ተጫዋች ወጥቷል:', socket.id);
     });
 });
 
