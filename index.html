@@ -181,7 +181,6 @@
             if (game.game_over()) return false;
             if (currentMode === 'bot' && piece.search(/^b/) !== -1 && game.turn() === 'b') return false;
             
-            // ኦንላይን ሲሆን የራስን ጠጠር ብቻ ማንሳት ይቻላል
             if (currentMode === 'online') {
                 if (game.turn() !== playerColor) return false;
                 if ((playerColor === 'w' && piece.search(/^b/) !== -1) || 
@@ -274,7 +273,6 @@
             socket.emit('joinTournament');
         }
 
-        // Socket Events
         socket.on('waiting', (msg) => {
             document.getElementById('status').innerText = msg;
         });
