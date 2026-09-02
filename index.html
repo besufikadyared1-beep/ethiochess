@@ -145,7 +145,7 @@
         </div>
     </div>
 
-    <script>
+    <scrip
         let board = null;
         let game = new Chess();
         let socket = io();
@@ -158,19 +158,57 @@
             if (piece.search(/^b/) !== -1 && currentMode === 'bot' && game.turn() === 'b') return false;
         }
 
+        
+                  function checkGameState() {
+            let statusText = '';
+
+            if (game.in_checkmate()) {
+                let winner = game.turn() === 'w' ? 'ጥቁር' : 'ነጭ';
+                statusText = '🎉 ጨዋታው ተጠናቋል! ' + winner + ' በቼክሜት አሸንፏል!';
+                alert(statusText);
+            } else if (game.in_draw()) {
+                statusText = '🤝 ጨዋታው አቻ ተጠናቋል!';
+                alert(statusText);
+            } else if (game.in_stalemate()) {
+                statusText = '🤝 ጨዋታው በስቲልሜት አቻ ተጠናቋል!';
+                alert(statusText);
+            } else if (game.in_check()) {
+                let checkColor = game.turn() === 'w' ? 'ነጭ' : 'ጥቁር';
+                statusText = '⚠️ ' + checkColor + ' ቼክ ሆኗል!';
+            } else {
+                let turnColor = game.turn() === 'w' ? 'ነጭ' : 'ጥቁር';
+                statusText = turnColor + ' የመጫወት ተራ ነው';
+            }
+
+            let statusEl = document.getElementById('status');
+            if (statusEl) { statusEl.innerText = statusText; }
+        }
+
         function makeRandomMove () {
             let possibleMoves = game.moves();
             if (possibleMoves.length === 0) return;
             let randomIdx = Math.floor(Math.random() * possibleMoves.length);
             game.move(possibleMoves[randomIdx]);
             board.position(game.fen());
+            checkGameState();
         }
 
         function onDrop (source, target) {
-            let move = game.move({ from: source, to: target, promotion: 'q' });
+            let move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+
             if (move === null) return 'snapback';
-            if (currentMode === 'bot') { window.setTimeout(makeRandomMove, 250); }
+
+            checkGameState();
+
+            if (currentMode === 'bot' && !game.game_over()) {
+                window.setTimeout(makeRandomMove, 250);
+            }
         }
+       
 
         function onSnapEnd () { board.position(game.fen()); }
 
